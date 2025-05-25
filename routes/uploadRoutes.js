@@ -1,48 +1,43 @@
-import path from "path";
-import multer from "multer";
 import express from "express";
+import multer from "multer";
+import cloudinary from "../cloudinary.js"; // your cloudinary config file
+import { Readable } from "stream";
+
 const router = express.Router();
 
-// Set up storage with multer
-const storage = multer.diskStorage({
-    destination(req,file, cb) {
-        cb(null, "upload/"); // Directory where files will be saved
-    },
-    filename(req, file, cb) { // Include 'file' parameter
-        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`); // Custom filename
-    }
-});
+// Multer memory storage to avoid saving files locally
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// Function to check file type
-function checkFileType(file, cb) {
-    const filetypes = /jpg|jpeg|png/; // Allowed file types
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) {
-        return cb(null, true); // File type is acceptable
-    } else {
-        cb(new Error("Images Only!")); // File type not acceptable
-    }
-}
+// Route to upload image
+router.post("/", upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "No file uploaded." });
+  }
 
-// Configure multer with storage and file filter
-const upload = multer({
-    storage,
-    fileFilter: (req, file, cb) => {
-        checkFileType(file, cb); // Validate file type using the checkFileType function
-    }
-});
+  try {
+    // Convert buffer to readable stream
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "upload" }, // Optional folder name
+      (error, result) => {
+        if (error) {
+          console.error("Upload error:", error);
+          return res.status(500).json({ message: "Upload failed." });
+        }
+        return res.json({
+          message: "Image Uploaded!",
+          image: result.secure_url // cloudinary URL
+        });
+      }
+    );
 
-// Route for uploading image
-router.post("/", upload.single('image'), (req, res) => {
-    // Ensure a file was uploaded
-    if (!req.file) {
-        return res.status(400).send({ message: "No file uploaded." });
-    }
-    res.send({
-        message: "Image Uploaded!",
-        image: `http://localhost:7000/${(req.file.path).replace(/\\/g,"/")}` // Return the path of the uploaded image
-    });
+    // Pipe the file buffer to the Cloudinary stream
+    Readable.from(req.file.buffer).pipe(stream);
+
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    res.status(500).json({ message: "Unexpected server error." });
+  }
 });
 
 export default router;
