@@ -24,7 +24,7 @@ const Login = asyncHandler(async (req, res) => {
     httpOnly: true,
     // secure: process.env.NODE_ENV !== "development",
     secure: true,
-    sameSite: "strict",
+    sameSite: "None",
     maxAge: 30 * 24 * 60 * 60 * 1000 //30days
 
   }
@@ -64,7 +64,7 @@ const Register = asyncHandler(async (req, res) => {
     res.cookie("jwt", accessToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "strict",
+      sameSite: "None",
       maxAge: 30 * 24 * 60 * 60 * 1000 //30days
   
     })
